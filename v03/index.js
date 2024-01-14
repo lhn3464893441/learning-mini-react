@@ -1,5 +1,5 @@
 let id = 1
-function work(IdleDeadline) {
+function workLoop(IdleDeadline) {
   id++
 
   let shouldIn = true
@@ -10,8 +10,8 @@ function work(IdleDeadline) {
 
   }
 
-  requestIdleCallback(work)
+  requestIdleCallback(workLoop)
 
 }
 
-requestIdleCallback(work)
+requestIdleCallback(workLoop)
