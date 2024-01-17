@@ -143,6 +143,7 @@ requestIdleCallback(fiberLoop)
 
 const React = {
     render,
+    update,
     createElement
 }
 
