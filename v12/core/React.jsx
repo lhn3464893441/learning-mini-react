@@ -2,7 +2,6 @@
 let nextWorkOfUnit = null
 // work in progress
 let wipRoot = null
-let currentRoot = null
 let wipFiber = null
 let deletions = []
 function render(container, el) {
@@ -70,11 +69,11 @@ function createElement(type, props, ...children) {
         type: type,
         props: {
             ...props,
-            children: 
-            children.map((child) => {
+            children: children.map((child) => {
                 const isTextNode = typeof child === 'string' || typeof child === 'number'
                 return isTextNode ? createTextNode(child) : child
             })
+            
         },
         
     }
@@ -125,7 +124,6 @@ function fiberLoop(IdleDeadline) {
         deletions.forEach(deleteComponent)
         //把el传入
         commitFiber(wipRoot.child)
-        currentRoot = wipRoot
         // 只执行一次
         wipRoot = null
     }
@@ -157,8 +155,6 @@ function updateProps(dom, nextProps, oldProps) {
                     // 新增事件时删除旧事件，防止重复调用
                     dom.removeEventListener(type, oldProps[key])
                     dom.addEventListener(type, nextProps[key])
-                    console.log('dom.getEventListeners()')
-                    console.log(dom)
                 } else {
                     dom[key] = nextProps[key]
                 }
@@ -254,6 +250,8 @@ function reconcileChildren(fiber, children) {
 }
 
 function updateFunctionComponent(fiber) {
+    console.log('fiber');
+    console.log(fiber);
     wipFiber = fiber
     // 构建链表
     const children = [fiber.type(fiber.props)]
