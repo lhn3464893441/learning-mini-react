@@ -113,7 +113,22 @@ function fiberLoop(IdleDeadline) {
         nextWorkOfUnit = perOffiberOfUnit(nextWorkOfUnit)
 
         if (nextWorkOfUnit?.type === wipRoot?.sibling?.type) {
-            console.log("hit", nextWorkOfUnit, wipRoot);
+            // console.log("hit", nextWorkOfUnit, wipRoot);
+            if(wipRoot?.parent){
+                let fiber = wipRoot.parent.child
+                let prev = null
+                while (fiber && fiber.type !== wipRoot.type) {
+                    prev = fiber
+                    fiber = fiber.sibling
+                }
+                if(prev){
+                    prev.sibling = wipRoot
+                } else {
+                    wipRoot.parent.child = wipRoot
+                }
+            }
+
+
             nextWorkOfUnit = undefined
         }
 
@@ -250,8 +265,6 @@ function reconcileChildren(fiber, children) {
 }
 
 function updateFunctionComponent(fiber) {
-    console.log('fiber');
-    console.log(fiber);
     wipFiber = fiber
     // 构建链表
     const children = [fiber.type(fiber.props)]
