@@ -14,10 +14,32 @@ function render(container, el) {
     nextWorkOfUnit = wipRoot
 }
 
-function update() {
+let stateHooks = null;
+let stateHookIndex = null;
+function useState(initial) {
     let currentFiber = wipFiber
-    return () => {
-        console.log(currentFiber);
+    let oldHook = currentFiber.alternate?.stateHooks[stateHookIndex]
+    const stateHook = {
+        state: oldHook ? oldHook.state : initial,
+        queue: oldHook ? oldHook.queue : []
+    }
+
+    stateHook.queue.forEach((action)=>{
+        stateHook.state = action(stateHook.state)
+    })
+
+    stateHook.queue = []
+    stateHookIndex++
+    stateHooks.push(stateHook)
+
+    currentFiber.stateHooks = stateHooks
+
+    function setState(action) {
+        const eagerState = typeof action === 'function' ? action(stateHook.state) : action
+
+        if(stateHook.state === eagerState) return
+
+        stateHook.queue.push(typeof action === 'function' ? action : () => action)
         wipRoot = {
             ...currentFiber,
             alternate: currentFiber
@@ -25,6 +47,21 @@ function update() {
         nextWorkOfUnit = wipRoot
     }
 
+    return [stateHook.state, setState]
+
+}
+
+let effectHooks = null;
+function useEffect(callback, deps) {
+    const effectHook = {
+        callback,
+        deps,
+        cleanup: undefined
+    }
+    effectHooks.push(effectHook)
+
+
+    wipFiber.effectHooks = effectHooks
 }
 
 
@@ -113,22 +150,6 @@ function fiberLoop(IdleDeadline) {
         nextWorkOfUnit = perOffiberOfUnit(nextWorkOfUnit)
 
         if (nextWorkOfUnit?.type === wipRoot?.sibling?.type) {
-            console.log("hit", nextWorkOfUnit, wipRoot);
-            if(wipRoot?.parent){
-                let fiber = wipRoot.parent.child
-                let prev = null
-                while (fiber && fiber.type !== wipRoot.type) {
-                    prev = fiber
-                    fiber = fiber.sibling
-                }
-                if(prev){
-                    prev.sibling = wipRoot
-                } else {
-                    wipRoot.parent.child = wipRoot
-                }
-            }
-
-
             nextWorkOfUnit = undefined
         }
 
@@ -147,10 +168,56 @@ function commitRoot() {
     deletions.forEach(deleteComponent)
     //把el传入
     commitFiber(wipRoot.child)
+    commitEffectHooks()
     // 只执行一次
     wipRoot = null
     deletions = []
 }
+
+function commitEffectHooks() {
+    
+    function run(fiber) {
+        if(!fiber) return
+
+        if(!fiber.alternate) {
+            fiber.effectHooks?.forEach((hook)=>{
+                hook.cleanup = hook.callback()
+            })
+        } else {
+            fiber.effectHooks?.forEach((newHook, index)=>{
+                let oldEffectHook = fiber.alternate?.effectHooks[index]
+                const needUpdate = oldEffectHook?.deps.some((oldDep, i)=>{
+                    return oldDep !== newHook.deps[i]
+                })
+
+                needUpdate && (newHook.cleanup = newHook?.callback())
+            })
+        }
+
+
+        run(fiber.child)
+        run(fiber.sibling)
+    }
+
+    function runCleanUp(fiber) {
+        if(!fiber) return
+
+
+        fiber.alternate?.effectHooks?.forEach((hook)=>{
+            if(hook.deps.length > 0)  {
+                hook.cleanup && hook.cleanup()
+            }
+        })
+
+        runCleanUp(fiber.child)
+        runCleanUp(fiber.sibling)
+    }
+
+
+    runCleanUp(wipRoot)
+    run(wipRoot)
+}
+
 
 // 创建dom
 function createDom(type) {
@@ -270,6 +337,9 @@ function reconcileChildren(fiber, children) {
 }
 
 function updateFunctionComponent(fiber) {
+    stateHooks = []
+    stateHookIndex = 0
+    effectHooks = []
     wipFiber = fiber
     // 构建链表
     const children = [fiber.type(fiber.props)]
@@ -317,7 +387,8 @@ requestIdleCallback(fiberLoop)
 
 const React = {
     render,
-    update,
+    useState,
+    useEffect,
     createElement
 }
 
